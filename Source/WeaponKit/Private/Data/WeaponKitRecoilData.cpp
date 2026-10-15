@@ -1,5 +1,7 @@
+// 后坐资产的构造默认值。头文件里的成员初值再在初始化列表里写一遍，保证生成的类默认对象一致。
 #include "Data/WeaponKitRecoilData.h"
 
+// 默认关闭固定序列，使用随机上抬。平滑时长 0.05 秒，立刻施加 25%。
 UWeaponKitRecoilData::UWeaponKitRecoilData()
 	: bUseFixedPattern(false)
 	, PatternResetDelay(0.25f)

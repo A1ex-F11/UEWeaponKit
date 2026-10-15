@@ -1,6 +1,8 @@
+// 枪械配置的构造和散布选择。运行时弹药不在这里。
 #include "Data/WeaponKitDefinitionData.h"
 #include "Data/WeaponKitBallisticsData.h"
 
+// 腰射和瞄准使用同一结构的默认锥角。瞄准默认更紧，是否启用由 bUseSeparateAimingSpread 决定。
 UWeaponKitDefinitionData::UWeaponKitDefinitionData()
 {
 	HipFire.StationarySpreadAngle = 0.0f;
@@ -25,12 +27,14 @@ UWeaponKitDefinitionData::UWeaponKitDefinitionData()
 	Aiming.SpreadRecoveryDelay = 0.15f;
 	Aiming.SpreadRecoverySpeed = 1.5f;
 
+	// 内联子对象设为 RF_Public，编辑器里才能把后坐和弹道展开编辑。
 	RecoilData = CreateDefaultSubobject<UWeaponKitRecoilData>(TEXT("Recoil"));
 	RecoilData->SetFlags(RF_Public);
 	BallisticsData = CreateDefaultSubobject<UWeaponKitBallisticsData>(TEXT("Ballistics"));
 	BallisticsData->SetFlags(RF_Public);
 }
 
+// 未开启独立瞄准散布时，瞄准也返回腰射那一份。
 const FWeaponKitSpreadProfile& UWeaponKitDefinitionData::GetSpreadProfile(bool bAiming) const
 {
 	return (bAiming && bUseSeparateAimingSpread) ? Aiming : HipFire;

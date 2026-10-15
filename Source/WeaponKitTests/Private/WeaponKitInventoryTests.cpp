@@ -1,3 +1,4 @@
+// 镜头后坐、背包读档和扫描器测试。使用临时世界，不加载关卡。
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
@@ -18,6 +19,7 @@
 
 namespace
 {
+// 把 Child Actor 槽包装成背包初始化所需的脚本接口。
 TScriptInterface<IWeaponKitSlotHost> AsSlotHost(UWeaponKitChildActorSlot* Slot)
 {
 	TScriptInterface<IWeaponKitSlotHost> Host;
@@ -27,11 +29,13 @@ TScriptInterface<IWeaponKitSlotHost> AsSlotHost(UWeaponKitChildActorSlot* Slot)
 }
 }
 
+// 瞄准写入控制旋转并乘瞄准倍率；腰射分离模式不写控制旋转。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitAimRecoilWriterTest,
 	"WeaponKit.Recoil.AimViewWriter",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 对比瞄准和分离腰射两条 ApplyRecoil 路径。
 bool FWeaponKitAimRecoilWriterTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;
@@ -86,11 +90,13 @@ bool FWeaponKitAimRecoilWriterTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 退出瞄准取消未完成的尾巴；手动观察不会被恢复逻辑拽回去。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitAimRecoilCleanupTest,
 	"WeaponKit.Recoil.TailCleanup",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// SetAiming 切换应清尾巴；NotifyManualLook 后视角保持。
 bool FWeaponKitAimRecoilCleanupTest::RunTest(const FString& Parameter)
 {
 	TGuardValue<uint64> FrameGuard(GFrameCounter, GFrameCounter);
@@ -161,11 +167,13 @@ bool FWeaponKitAimRecoilCleanupTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 三个槽、一份存档、切换、丢弃，再通过接口捡回。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitLoadoutTest,
 	"WeaponKit.Inventory.LoadoutSwitchAndDrop",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 丢枪要求留下至少一把，并且拾取物类必须已登记。
 bool FWeaponKitLoadoutTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;
@@ -247,11 +255,13 @@ bool FWeaponKitLoadoutTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 不实现接口的 Actor 被拒绝；距离和死亡生效；没有体积时不会自动拾取。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitScannerTest,
 	"WeaponKit.Scanner.ManualPickupWithoutNameLookup",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 扫描器只在登记、距离、存活和体积条件都满足时给出目标。
 bool FWeaponKitScannerTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;

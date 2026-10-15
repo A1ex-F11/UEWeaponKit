@@ -1,3 +1,4 @@
+// 纯数据测试：散布、弹道后坐、冲量包络、曳光几何和伤害区域。不创建世界。
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
@@ -9,11 +10,13 @@
 #include "Tracer/WeaponKitShotTracerComponent.h"
 #include <limits>
 
+// 连续射击散布的加减、上限、恢复延迟和 NaN。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitSpreadMathTest,
 	"WeaponKit.Spread.MathBoundaries",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 非法输入应收成 0；延迟结束前不恢复，结束后只按超出延迟的时间下降。
 bool FWeaponKitSpreadMathTest::RunTest(const FString& Parameter)
 {
 	const float NaN = std::numeric_limits<float>::quiet_NaN();
@@ -32,11 +35,13 @@ bool FWeaponKitSpreadMathTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 弹道后坐的延迟恢复，以及俯仰 / 偏航叠加到射击方向。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitShotRecoilMathTest,
 	"WeaponKit.Recoil.ShotMath",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 延迟内偏移不变；偏航 90 度应转到右方；非有限偏移被拒绝。
 bool FWeaponKitShotRecoilMathTest::RunTest(const FString& Parameter)
 {
 	const FVector2D Offset(4.0f, -2.0f);
@@ -51,11 +56,13 @@ bool FWeaponKitShotRecoilMathTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 冲量包络拆成多步后，总量与一次推进相同时间一致。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitKickEnvelopeTest,
 	"WeaponKit.Recoil.KickEnvelopeIntegral",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 五次 0.1 秒应等于一次 0.5 秒；走完时长后剩余为 0。
 bool FWeaponKitKickEnvelopeTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitRecoilKickEnvelope Stepped;
@@ -84,11 +91,13 @@ bool FWeaponKitKickEnvelopeTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 曳光飞行时间、线段不越出枪口和落点，以及参数名可改。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitTracerGeometryTest,
 	"WeaponKit.Tracer.FlightAndSegmentBounds",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 近距离会截断亮线；未配置的曳光组件播放失败，且不加载关卡资源。
 bool FWeaponKitTracerGeometryTest::RunTest(const FString& Parameter)
 {
 	float Distance = 0.0f;
@@ -124,11 +133,13 @@ bool FWeaponKitTracerGeometryTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 头 / 身体倍率，以及未列入区域的骨骼名 head 不再爆头。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitDamageRegionTest,
 	"WeaponKit.Damage.RegionMultipliers",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 用 MakeHeadBodyRegions 复现旧的头、身体和护甲数值。
 bool FWeaponKitDamageRegionTest::RunTest(const FString& Parameter)
 {
 	const TArray<FWeaponKitDamageRegion> HeadBody = UWeaponKitDamageLibrary::MakeHeadBodyRegions(FName(TEXT("head")), 4.0f);

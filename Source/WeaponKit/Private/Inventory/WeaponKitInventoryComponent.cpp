@@ -1,3 +1,4 @@
+// 可变槽位背包：初始化、读档、拾取、切枪和丢枪。扫描器只在丢枪成功后查询。
 #include "Inventory/WeaponKitInventoryComponent.h"
 
 #include "Engine/World.h"
@@ -5,19 +6,23 @@
 #include "Runtime/WeaponKitInteractionScanner.h"
 #include "Runtime/WeaponKitRuntime.h"
 
+// 初始化或读档被拒绝时写入警告，不改变返回值。
 DEFINE_LOG_CATEGORY_STATIC(LogWeaponKitInventory, Log, All);
 
+// 不 Tick。所有背包操作由调用方发起。
 UWeaponKitInventoryComponent::UWeaponKitInventoryComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+// 必须是具体的 AWeaponKitRuntime 子类。
 bool UWeaponKitInventoryComponent::IsUsableWeaponClass(TSubclassOf<AWeaponKitRuntime> WeaponClass)
 {
 	UClass* Class = WeaponClass.Get();
 	return Class && Class->IsChildOf(AWeaponKitRuntime::StaticClass()) && !Class->HasAnyClassFlags(CLASS_Abstract);
 }
 
+// 丢枪生成的类必须实现拾取接口，且不能是抽象类。
 bool UWeaponKitInventoryComponent::IsUsablePickupActorClass(TSubclassOf<AActor> PickupClass)
 {
 	UClass* Class = PickupClass.Get();
@@ -26,6 +31,7 @@ bool UWeaponKitInventoryComponent::IsUsablePickupActorClass(TSubclassOf<AActor> 
 		!Class->HasAnyClassFlags(CLASS_Abstract);
 }
 
+// 没实现携带者接口时视为存活。拥有者无效时返回 false。
 bool UWeaponKitInventoryComponent::IsCarrierAlive() const
 {
 	const AActor* OwnerActor = GetOwner();
@@ -40,6 +46,7 @@ bool UWeaponKitInventoryComponent::IsCarrierAlive() const
 	return true;
 }
 
+// 没实现接口时视为首抽还没播。
 bool UWeaponKitInventoryComponent::HasConsumedInitialDraw(AWeaponKitRuntime* Weapon) const
 {
 	const AActor* OwnerActor = GetOwner();
@@ -50,6 +57,7 @@ bool UWeaponKitInventoryComponent::HasConsumedInitialDraw(AWeaponKitRuntime* Wea
 	return IWeaponKitCarrier::Execute_HasConsumedWeaponInitialDraw(OwnerActor, Weapon);
 }
 
+// 读档带首抽标记时通知携带者。没实现接口则忽略。
 void UWeaponKitInventoryComponent::ApplyInitialDrawConsumed(AWeaponKitRuntime* Weapon) const
 {
 	AActor* OwnerActor = GetOwner();
@@ -59,6 +67,7 @@ void UWeaponKitInventoryComponent::ApplyInitialDrawConsumed(AWeaponKitRuntime* W
 	}
 }
 
+// 宿主必须非空、互不重复，且是拥有者身上已就绪的组件。
 bool UWeaponKitInventoryComponent::ValidateHosts(const TArray<TScriptInterface<IWeaponKitSlotHost>>& Hosts) const
 {
 	AActor* OwnerActor = GetOwner();
@@ -87,6 +96,7 @@ bool UWeaponKitInventoryComponent::ValidateHosts(const TArray<TScriptInterface<I
 	return true;
 }
 
+// 读档后的初始化必须传入同一组宿主。
 bool UWeaponKitInventoryComponent::HostsMatch(const TArray<TScriptInterface<IWeaponKitSlotHost>>& Hosts) const
 {
 	if (Hosts.Num() != SlotHosts.Num())
@@ -103,6 +113,7 @@ bool UWeaponKitInventoryComponent::HostsMatch(const TArray<TScriptInterface<IWea
 	return true;
 }
 
+// 只能成功一次。读档失败后会被拒绝，直到重新 PrepareForExternalRestore。
 bool UWeaponKitInventoryComponent::InitializeInventory(
 	const TArray<TScriptInterface<IWeaponKitSlotHost>>& InSlotHosts,
 	int32 InitialSlotIndex)
@@ -112,6 +123,7 @@ bool UWeaponKitInventoryComponent::InitializeInventory(
 		UE_LOG(LogWeaponKitInventory, Warning, TEXT("Inventory init rejected: busy, already initialized, unregistered, failed restore, or invalid slots."));
 		return false;
 	}
+	// 槽位和读档时不一致就拒绝，避免武器生成在另一组组件上。
 	if (bCheckpointLoadoutPendingInitialization && !HostsMatch(InSlotHosts))
 	{
 		UE_LOG(LogWeaponKitInventory, Warning, TEXT("Inventory init rejected: checkpoint slots do not match the restored hosts."));
@@ -186,6 +198,7 @@ bool UWeaponKitInventoryComponent::InitializeInventory(
 	return true;
 }
 
+// 取消当前武器动作并清空初始化标记，为整份读档让路。
 bool UWeaponKitInventoryComponent::PrepareForExternalRestore()
 {
 	if (bInventoryBusy)
@@ -208,6 +221,7 @@ bool UWeaponKitInventoryComponent::PrepareForExternalRestore()
 	return true;
 }
 
+// 按存档重建每个槽。任一槽失败会清空全部并标记读档失败。
 bool UWeaponKitInventoryComponent::RestoreLoadout(
 	const TArray<TScriptInterface<IWeaponKitSlotHost>>& InSlotHosts,
 	const FWeaponKitLoadoutSave& Save)
@@ -269,11 +283,13 @@ bool UWeaponKitInventoryComponent::RestoreLoadout(
 	return true;
 }
 
+// 当前武器已被销毁时弱指针自然变空。
 AWeaponKitRuntime* UWeaponKitInventoryComponent::GetCurrentWeapon() const
 {
 	return CurrentWeapon.Get();
 }
 
+// 下标无效或槽里不是有效武器时返回空。
 AWeaponKitRuntime* UWeaponKitInventoryComponent::GetSlotWeapon(int32 SlotIndex) const
 {
 	if (!SlotHosts.IsValidIndex(SlotIndex))
@@ -289,6 +305,7 @@ AWeaponKitRuntime* UWeaponKitInventoryComponent::GetSlotWeapon(int32 SlotIndex) 
 	return IsValid(Weapon) ? Weapon : nullptr;
 }
 
+// 复制当时的槽位数组、当前武器和下标。
 FWeaponKitInventorySnapshot UWeaponKitInventoryComponent::GetSnapshot() const
 {
 	FWeaponKitInventorySnapshot Snapshot;
@@ -302,11 +319,13 @@ FWeaponKitInventorySnapshot UWeaponKitInventoryComponent::GetSnapshot() const
 	return Snapshot;
 }
 
+// 未初始化、携带者死亡或槽位失效时，拾取和切枪都会失败。
 bool UWeaponKitInventoryComponent::IsOperational() const
 {
 	return bInitialized && IsRegistered() && IsCarrierAlive() && ValidateHosts(SlotHosts);
 }
 
+// 同一把枪出现在两个槽时视为数据损坏。
 bool UWeaponKitInventoryComponent::ReadSlotWeapons(TArray<AWeaponKitRuntime*>& OutWeapons) const
 {
 	OutWeapons.Reset();
@@ -341,6 +360,7 @@ bool UWeaponKitInventoryComponent::ReadSlotWeapons(TArray<AWeaponKitRuntime*>& O
 	return true;
 }
 
+// 不在任何槽里时返回 INDEX_NONE。
 int32 UWeaponKitInventoryComponent::FindSlotIndex(const AWeaponKitRuntime* Weapon) const
 {
 	if (!IsValid(Weapon))
@@ -357,6 +377,7 @@ int32 UWeaponKitInventoryComponent::FindSlotIndex(const AWeaponKitRuntime* Weapo
 	return INDEX_NONE;
 }
 
+// 向后环形查找下一把枪，包含绕回后的当前槽。
 int32 UWeaponKitInventoryComponent::FindNextOccupiedSlot(int32 FromIndex) const
 {
 	if (SlotHosts.Num() == 0)
@@ -374,6 +395,7 @@ int32 UWeaponKitInventoryComponent::FindNextOccupiedSlot(int32 FromIndex) const
 	return INDEX_NONE;
 }
 
+// 少于两把时不允许丢枪。
 int32 UWeaponKitInventoryComponent::CountOccupiedSlots() const
 {
 	int32 Count = 0;
@@ -387,6 +409,7 @@ int32 UWeaponKitInventoryComponent::CountOccupiedSlots() const
 	return Count;
 }
 
+// 换下之前取消换弹。EndPlay 传 false，避免销毁过程中再广播。
 void UWeaponKitInventoryComponent::CancelCurrentWeaponActions(AWeaponKitRuntime* OldWeapon, bool bNotify)
 {
 	if (!IsValid(OldWeapon))
@@ -400,6 +423,7 @@ void UWeaponKitInventoryComponent::CancelCurrentWeaponActions(AWeaponKitRuntime*
 	}
 }
 
+// 只切换隐藏。动画和网格由游戏表现层处理。
 void UWeaponKitInventoryComponent::SetWeaponActorActive(AWeaponKitRuntime* Weapon, bool bActive) const
 {
 	if (IsValid(Weapon))
@@ -408,6 +432,7 @@ void UWeaponKitInventoryComponent::SetWeaponActorActive(AWeaponKitRuntime* Weapo
 	}
 }
 
+// 隐藏其他槽，显示新手枪，并广播背包和装备变化。
 void UWeaponKitInventoryComponent::CommitCurrentWeapon(AWeaponKitRuntime* NewWeapon, bool bRefreshPresentation)
 {
 	AWeaponKitRuntime* OldWeapon = CurrentWeapon.Get();
@@ -434,11 +459,13 @@ void UWeaponKitInventoryComponent::CommitCurrentWeapon(AWeaponKitRuntime* NewWea
 	}
 }
 
+// 广播一份新快照。
 void UWeaponKitInventoryComponent::BroadcastInventoryChanged()
 {
 	OnInventoryChanged.Broadcast(GetSnapshot());
 }
 
+// 生成后先隐藏，再恢复存档。失败时清空该槽。
 bool UWeaponKitInventoryComponent::CreateWeaponInSlot(
 	const TScriptInterface<IWeaponKitSlotHost>& Slot,
 	TSubclassOf<AWeaponKitRuntime> WeaponClass,
@@ -479,6 +506,7 @@ bool UWeaponKitInventoryComponent::CreateWeaponInSlot(
 	return true;
 }
 
+// 先生成隐藏且无碰撞的拾取物，确认背包改完再显示，避免半路被扫到。
 AActor* UWeaponKitInventoryComponent::SpawnStagedPickup(
 	TSubclassOf<AWeaponKitRuntime> WeaponClass,
 	const FWeaponKitPickupState& State) const
@@ -529,6 +557,7 @@ AActor* UWeaponKitInventoryComponent::SpawnStagedPickup(
 	return Pickup;
 }
 
+// 打开显示和碰撞，并把前向交给蓝图抛出。
 void UWeaponKitInventoryComponent::LaunchStagedPickup(AActor* Pickup) const
 {
 	if (!IsValid(Pickup))
@@ -544,6 +573,7 @@ void UWeaponKitInventoryComponent::LaunchStagedPickup(AActor* Pickup) const
 	}
 }
 
+// 从扫描器注销后销毁，避免瞄准提示指向已捡起的 Actor。
 void UWeaponKitInventoryComponent::ConsumePickupSource(AActor* Source)
 {
 	if (!IsValid(Source))
@@ -557,6 +587,7 @@ void UWeaponKitInventoryComponent::ConsumePickupSource(AActor* Source)
 	Source->Destroy();
 }
 
+// 生成武器失败时允许这把拾取物再次被捡。
 void UWeaponKitInventoryComponent::ReleasePickupClaim(AActor* Source) const
 {
 	if (IsValid(Source) && Source->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
@@ -565,6 +596,7 @@ void UWeaponKitInventoryComponent::ReleasePickupClaim(AActor* Source) const
 	}
 }
 
+// 有空槽就放入；没有空槽时只有允许替换才换掉当前武器。
 bool UWeaponKitInventoryComponent::TryPickup(AActor* Source, bool bAllowReplaceCurrent)
 {
 	if (bInventoryBusy)
@@ -604,6 +636,7 @@ bool UWeaponKitInventoryComponent::TryPickup(AActor* Source, bool bAllowReplaceC
 	{
 		return false;
 	}
+	// 手动替换不要求重叠体积；自动拾取（不允许替换）才检查体积。
 	if (!IWeaponKitPickup::Execute_CanBePickedUpBy(Source, Pawn, !bAllowReplaceCurrent))
 	{
 		return false;
@@ -639,11 +672,13 @@ bool UWeaponKitInventoryComponent::TryPickup(AActor* Source, bool bAllowReplaceC
 	return true;
 }
 
+// 转到该槽里的武器。空槽失败。
 bool UWeaponKitInventoryComponent::TryEquipSlot(int32 SlotIndex)
 {
 	return TryEquipWeapon(GetSlotWeapon(SlotIndex));
 }
 
+// 已经装备时直接成功。否则取消旧枪换弹再提交。
 bool UWeaponKitInventoryComponent::TryEquipWeapon(AWeaponKitRuntime* NewWeapon)
 {
 	if (bInventoryBusy)
@@ -669,6 +704,7 @@ bool UWeaponKitInventoryComponent::TryEquipWeapon(AWeaponKitRuntime* NewWeapon)
 	return true;
 }
 
+// 切到下一把有枪的槽，不要求表现层重播装备动画。
 bool UWeaponKitInventoryComponent::TrySwitchWeapon()
 {
 	if (bInventoryBusy)
@@ -697,6 +733,7 @@ bool UWeaponKitInventoryComponent::TrySwitchWeapon()
 	return true;
 }
 
+// 至少留一把枪。成功丢出后再问扫描器有没有脚边的另一把。
 bool UWeaponKitInventoryComponent::TryDropCurrent()
 {
 	if (bInventoryBusy)
@@ -708,6 +745,7 @@ bool UWeaponKitInventoryComponent::TryDropCurrent()
 	{
 		TGuardValue<bool> BusyGuard(bInventoryBusy, true);
 		APawn* Pawn = Cast<APawn>(GetOwner());
+		// 只剩一把时拒绝丢弃，避免身上没有武器。
 		if (!IsOperational() || !IsValid(Pawn) || CountOccupiedSlots() < 2)
 		{
 			return false;
@@ -739,6 +777,7 @@ bool UWeaponKitInventoryComponent::TryDropCurrent()
 
 	if (IsValid(InteractionScanner) && IsValid(DroppedPickup))
 	{
+		// 排除刚丢掉的那把，只自动捡起另一把已登记的拾取物。
 		if (AActor* NearbyPickup = InteractionScanner->GetAutomaticPickup(DroppedPickup))
 		{
 			TryPickup(NearbyPickup, false);
@@ -747,6 +786,7 @@ bool UWeaponKitInventoryComponent::TryDropCurrent()
 	return true;
 }
 
+// 先把旧枪暂存成隐藏拾取物。新手枪失败时尝试放回原槽。
 bool UWeaponKitInventoryComponent::TryReplaceCurrentFromPickup(
 	AActor* Source,
 	TSubclassOf<AWeaponKitRuntime> IncomingClass,
@@ -782,6 +822,7 @@ bool UWeaponKitInventoryComponent::TryReplaceCurrentFromPickup(
 	const TSubclassOf<AWeaponKitRuntime> OldClass = OldWeapon->GetClass();
 	CancelCurrentWeaponActions(OldWeapon, true);
 	AWeaponKitRuntime* IncomingWeapon = nullptr;
+	// 新手枪成功后才抛出旧枪并销毁地上的来源。
 	if (CreateWeaponInSlot(SlotHosts[OldIndex], IncomingClass, IncomingState, IncomingWeapon))
 	{
 		CommitCurrentWeapon(IncomingWeapon);
@@ -808,6 +849,7 @@ bool UWeaponKitInventoryComponent::TryReplaceCurrentFromPickup(
 	return false;
 }
 
+// 置忙标记，取消当前换弹并忘掉槽位记录。不销毁槽组件里的武器。
 void UWeaponKitInventoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	bInventoryBusy = true;

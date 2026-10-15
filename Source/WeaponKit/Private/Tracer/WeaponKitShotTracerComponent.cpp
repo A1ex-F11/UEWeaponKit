@@ -1,3 +1,4 @@
+// 生成 Niagara 曳光并写入可配置的用户参数。不做伤害检测。
 #include "Tracer/WeaponKitShotTracerComponent.h"
 #include "Math/ShotTracerGeometry.h"
 #include "NiagaraComponent.h"
@@ -5,11 +6,13 @@
 #include "NiagaraSystem.h"
 #include "Engine/World.h"
 
+// 不 Tick。特效寿命由 Niagara 系统自己结束。
 UWeaponKitShotTracerComponent::UWeaponKitShotTracerComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+// 专用服务器、未指定特效、参数名是 None 或几何不合法时直接失败。
 bool UWeaponKitShotTracerComponent::PlayShotTracer(FVector MuzzleLocation, FVector ShotEnd)
 {
 	UWorld* World = GetWorld();
@@ -32,7 +35,9 @@ bool UWeaponKitShotTracerComponent::PlayShotTracer(FVector MuzzleLocation, FVect
 		return false;
 	}
 
+	// 先丢掉已经自然结束的曳光，再检查同时存在上限。
 	ActiveTracers.RemoveAll([](const TWeakObjectPtr<UNiagaraComponent>& Item) { return !Item.IsValid(); });
+	// 达到上限就放弃这一发，避免特效无限堆积。
 	if (ActiveTracers.Num() >= FMath::Max(1, MaxActiveTracers))
 	{
 		return false;
@@ -63,6 +68,7 @@ bool UWeaponKitShotTracerComponent::PlayShotTracer(FVector MuzzleLocation, FVect
 	return true;
 }
 
+// 主动销毁仍在跟踪的曳光组件。
 void UWeaponKitShotTracerComponent::ClearShotTracers()
 {
 	for (const TWeakObjectPtr<UNiagaraComponent>& Item : ActiveTracers)
@@ -75,6 +81,7 @@ void UWeaponKitShotTracerComponent::ClearShotTracers()
 	ActiveTracers.Reset();
 }
 
+// 组件结束时清曳光，再走父类。
 void UWeaponKitShotTracerComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearShotTracers();

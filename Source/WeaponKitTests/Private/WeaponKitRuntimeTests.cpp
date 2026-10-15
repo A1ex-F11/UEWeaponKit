@@ -1,3 +1,4 @@
+// 武器运行时测试：初始配置、连续射击散布、瞄准散布和瞄准时忽略弹道后坐。
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
@@ -9,6 +10,7 @@
 
 namespace
 {
+// 造一把全自动测试枪。初始弹匣 9、备弹 40，换弹开始时锁定数量。
 UWeaponKitDefinitionData* MakeWeaponKitDefinition()
 {
 	UWeaponKitDefinitionData* Definition = NewObject<UWeaponKitDefinitionData>(GetTransientPackage());
@@ -30,6 +32,7 @@ UWeaponKitDefinitionData* MakeWeaponKitDefinition()
 	return Definition;
 }
 
+// 延迟生成武器，以便在 FinishSpawning 之前写入读档弹药。
 AWeaponKitRuntime* SpawnWeaponKitWeapon(
 	FAutomationTestBase& Test,
 	UWorld* World,
@@ -65,12 +68,14 @@ AWeaponKitRuntime* SpawnWeaponKitWeapon(
 	return Weapon;
 }
 
+// 两个方向的夹角（度），用来检查散布是否落在锥角内。
 float AngleDegrees(const FVector& A, const FVector& B)
 {
 	const float Dot = FMath::Clamp(FVector::DotProduct(A.GetSafeNormal(), B.GetSafeNormal()), -1.0f, 1.0f);
 	return FMath::RadiansToDegrees(FMath::Acos(Dot));
 }
 
+// 采样 32 次。锥角大于 0 时应至少有一次偏离正前方。
 bool HasSpread(AWeaponKitRuntime* Weapon, float Speed = 0.0f, bool bFalling = false)
 {
 	bool bVaried = false;
@@ -88,6 +93,7 @@ bool HasSpread(AWeaponKitRuntime* Weapon, float Speed = 0.0f, bool bFalling = fa
 	return bVaried;
 }
 
+// 锥角为 0 时，每次采样都应等于基准方向。
 bool AllDirectionsExact(AWeaponKitRuntime* Weapon, const FVector& Base, float Speed = 0.0f, bool bFalling = false)
 {
 	for (int32 Index = 0; Index < 32; ++Index)
@@ -104,11 +110,13 @@ bool AllDirectionsExact(AWeaponKitRuntime* Weapon, const FVector& Base, float Sp
 }
 }
 
+// 初始弹药来自资产；读档不被首次初始化覆盖；射击不改共享资产。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitInitialStateTest,
 	"WeaponKit.Runtime.InitialConfigAndRestore",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 覆盖生成默认值、延迟生成前读档，以及配置资产保持不变。
 bool FWeaponKitInitialStateTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;
@@ -153,11 +161,13 @@ bool FWeaponKitInitialStateTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 连续射击散布的增长、上限和停火恢复。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitFiringSpreadLifecycleTest,
 	"WeaponKit.Runtime.ContinuousFireSpread",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 每发增加后不超过上限，停火超过延迟后应下降。
 bool FWeaponKitFiringSpreadLifecycleTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;
@@ -223,11 +233,13 @@ bool FWeaponKitFiringSpreadLifecycleTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 已提交的一发保持提交时的锥角；腰射和瞄准两套散布分开累计。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitAimSpreadTest,
 	"WeaponKit.Runtime.AimSpreadSnapshotAndBloom",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 提交后切换瞄准，不应改掉这一发已经缓存的散布。
 bool FWeaponKitAimSpreadTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;
@@ -292,11 +304,13 @@ bool FWeaponKitAimSpreadTest::RunTest(const FString& Parameter)
 	return true;
 }
 
+// 瞄准提交的射击跟着输入方向走，镜头冲量仍然会生成。
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FWeaponKitAimDirectionTest,
 	"WeaponKit.Runtime.AimIgnoresAccumulatedShotRecoil",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+// 瞄准时忽略累计弹道后坐，但 GenerateRecoilKick 仍应成功。
 bool FWeaponKitAimDirectionTest::RunTest(const FString& Parameter)
 {
 	FWeaponKitTestWorld TestWorld;

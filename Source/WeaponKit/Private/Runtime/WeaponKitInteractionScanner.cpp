@@ -1,13 +1,16 @@
+// 从已登记的拾取物里按距离和视线选目标。背包不负责这项判断。
 #include "Runtime/WeaponKitInteractionScanner.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 
+// 不 Tick。有登记目标时用定时器刷新瞄准结果。
 UWeaponKitInteractionScanner::UWeaponKitInteractionScanner()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+// 没实现携带者接口时视为存活。拥有者无效时视为死亡。
 bool UWeaponKitInteractionScanner::IsCarrierAlive() const
 {
 	const AActor* OwnerActor = GetOwner();
@@ -22,6 +25,7 @@ bool UWeaponKitInteractionScanner::IsCarrierAlive() const
 	return true;
 }
 
+// 只接受实现了拾取接口的 Actor。首次登记时启动重复定时器。
 bool UWeaponKitInteractionScanner::RegisterPickup(AActor* Pickup)
 {
 	if (!IsValid(Pickup) || !Pickup->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
@@ -46,6 +50,7 @@ bool UWeaponKitInteractionScanner::RegisterPickup(AActor* Pickup)
 	return true;
 }
 
+// 移除指定项，并顺手丢掉已经失效的弱指针。
 void UWeaponKitInteractionScanner::UnregisterPickup(AActor* Pickup)
 {
 	NearbyPickups.RemoveAll([Pickup](const TWeakObjectPtr<AActor>& Entry)
@@ -55,16 +60,19 @@ void UWeaponKitInteractionScanner::UnregisterPickup(AActor* Pickup)
 	RefreshAimedPickup();
 }
 
+// 手动拾取候选，不排除任何 Actor。
 AActor* UWeaponKitInteractionScanner::GetManualPickup() const
 {
 	return FindPickup(false, nullptr);
 }
 
+// 自动拾取候选。ExcludedPickup 用来跳过刚丢掉的那一把。
 AActor* UWeaponKitInteractionScanner::GetAutomaticPickup(AActor* ExcludedPickup) const
 {
 	return FindPickup(true, ExcludedPickup);
 }
 
+// 在手动候选上再打一条视线，只有射线打中它才算瞄准。
 AActor* UWeaponKitInteractionScanner::GetAimedPickup() const
 {
 	AActor* Candidate = GetManualPickup();
@@ -117,6 +125,7 @@ AActor* UWeaponKitInteractionScanner::GetAimedPickup() const
 		: nullptr;
 }
 
+// 先用视线命中；没打中则在距离内、视线不被挡住的登记项里选最近的。
 AActor* UWeaponKitInteractionScanner::FindPickup(bool bAutomaticOnly, AActor* ExcludedPickup) const
 {
 	UWorld* World = GetWorld();
@@ -180,6 +189,7 @@ AActor* UWeaponKitInteractionScanner::FindPickup(bool bAutomaticOnly, AActor* Ex
 			QueryParams) &&
 		IsRegisteredAndInRange(AimHit.GetActor()))
 	{
+		// 视线已经打在合格拾取物上，优先于纯距离选择。
 		return AimHit.GetActor();
 	}
 
@@ -212,6 +222,7 @@ AActor* UWeaponKitInteractionScanner::FindPickup(bool bAutomaticOnly, AActor* Ex
 	return Nearest;
 }
 
+// 列表里是否还有没被销毁的拾取物。
 bool UWeaponKitInteractionScanner::HasRegisteredPickup() const
 {
 	for (const TWeakObjectPtr<AActor>& Entry : NearbyPickups)
@@ -224,6 +235,7 @@ bool UWeaponKitInteractionScanner::HasRegisteredPickup() const
 	return false;
 }
 
+// 目标出现、消失或换成另一把时才广播，避免每个间隔都通知表现层。
 void UWeaponKitInteractionScanner::RefreshAimedPickup()
 {
 	const bool bHasCandidate = HasRegisteredPickup();
@@ -244,6 +256,7 @@ void UWeaponKitInteractionScanner::RefreshAimedPickup()
 	}
 }
 
+// 停止定时器。若界面还显示着瞄准目标，广播空指针清掉。
 void UWeaponKitInteractionScanner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (UWorld* World = GetWorld())

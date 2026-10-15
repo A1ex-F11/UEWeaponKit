@@ -1,3 +1,4 @@
+// 镜头和控制器后坐。瞄准写控制旋转；分离模式的腰射只偏摄像机。
 #include "Recoil/WeaponKitCameraRecoilComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Data/WeaponKitRecoilData.h"
@@ -7,18 +8,21 @@
 
 namespace
 {
+// 非有限数用 Fallback，负数收成 0。
 float WeaponKitSafeNonNegative(float Value, float Fallback = 0.0f)
 {
 	return FMath::IsFinite(Value) ? FMath::Max(0.0f, Value) : Fallback;
 }
 }
 
+// 可以 Tick，但默认关闭。只有还有尾巴或镜头偏移时才打开。
 UWeaponKitCameraRecoilComponent::UWeaponKitCameraRecoilComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
+// 状态没变时保留正在播放的尾巴。真正切换时清掉未施加部分，已写入的角度不动。
 void UWeaponKitCameraRecoilComponent::SetAiming(bool bInAiming)
 {
 	if (bAiming == bInAiming)
@@ -29,6 +33,7 @@ void UWeaponKitCameraRecoilComponent::SetAiming(bool bInAiming)
 	bAiming = bInAiming;
 }
 
+// 唯一施加入口。无效的后坐资产直接忽略。
 void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 	float PitchKick,
 	float YawKick,
@@ -40,6 +45,7 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 		return;
 	}
 
+	// 瞄准：冲量乘瞄准倍率后写入控制旋转，下一发采样到同一条视线。
 	if (bAiming)
 	{
 		if (!FMath::IsFinite(PitchKick) || !FMath::IsFinite(YawKick))
@@ -64,10 +70,12 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 		return;
 	}
 
+	// 只有固定序列并且开启分离时，腰射才不改控制旋转。
 	const bool bIndependentVisual = RecoilSettings->bUseFixedPattern && RecoilSettings->bUseIndependentShotRecoil;
 	if (!bIndependentVisual)
 	{
 		ClearIndependentVisual();
+		// 随机腰射走控制器输入，并受组件上的累计上限约束。
 		if (!RecoilSettings->bUseFixedPattern)
 		{
 			ActiveRecoveryDelay = WeaponKitSafeNonNegative(RecoveryDelay);
@@ -131,6 +139,7 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 	}
 }
 
+// 没有控制器时无法写视角。立即部分马上施加，其余放进平滑尾巴。
 void UWeaponKitCameraRecoilComponent::QueueKick(
 	float PitchKick,
 	float YawKick,
@@ -149,6 +158,7 @@ void UWeaponKitCameraRecoilComponent::QueueKick(
 	bRecoveryStarted = false;
 	bRecoverImmediately = false;
 	FVector2D Accepted(FMath::Max(0.0f, PitchKick), YawKick);
+	// 把已累计和未播完的尾巴一起算进俯仰 / 偏航上限，超出的部分丢掉。
 	if (bUseCumulativeLimits)
 	{
 		FVector2D Reserved(AccumulatedPitch, AccumulatedYaw);
@@ -182,6 +192,7 @@ void UWeaponKitCameraRecoilComponent::QueueKick(
 	StartRecoveryTimer();
 }
 
+// 瞄准直接改控制旋转；腰射走控制器输入，便于和玩家鼠标同一条通道。
 void UWeaponKitCameraRecoilComponent::ApplyDelta(const FVector2D& Delta, bool bRecoverable)
 {
 	APawn* PawnOwner = Cast<APawn>(GetOwner());
@@ -190,6 +201,7 @@ void UWeaponKitCameraRecoilComponent::ApplyDelta(const FVector2D& Delta, bool bR
 		return;
 	}
 
+	// 瞄准直接改控制旋转，俯仰钳在 ±89 度；腰射改走控制器输入。
 	if (bAiming)
 	{
 		FRotator View = PawnOwner->GetController()->GetControlRotation();
@@ -210,6 +222,7 @@ void UWeaponKitCameraRecoilComponent::ApplyDelta(const FVector2D& Delta, bool bR
 	}
 }
 
+// 分离模式指数回落摄像机偏移；否则推进写到控制器的平滑尾巴。
 void UWeaponKitCameraRecoilComponent::TickComponent(
 	float DeltaTime,
 	ELevelTick TickType,
@@ -232,6 +245,7 @@ void UWeaponKitCameraRecoilComponent::TickComponent(
 				VisualKicks.RemoveAt(Index);
 			}
 		}
+		// 指数回落，帧率变化时接近同一条曲线。
 		VisualOffset *= FMath::Exp(-VisualReturnSpeed * Dt);
 		if (VisualKicks.IsEmpty() && VisualOffset.IsNearlyZero(0.0001f))
 		{
@@ -264,6 +278,7 @@ void UWeaponKitCameraRecoilComponent::TickComponent(
 	}
 }
 
+// 没有剩余冲量时不再计时。立即恢复不等待延迟。
 void UWeaponKitCameraRecoilComponent::StartRecoveryTimer()
 {
 	if (PendingKicks.IsEmpty() && FMath::IsNearlyZero(AccumulatedPitch) && FMath::IsNearlyZero(AccumulatedYaw))
@@ -283,6 +298,7 @@ void UWeaponKitCameraRecoilComponent::StartRecoveryTimer()
 	}
 }
 
+// 清掉自动恢复定时器。视角保持当前值。
 void UWeaponKitCameraRecoilComponent::StopRecoveryTimer()
 {
 	if (UWorld* World = GetWorld())
@@ -291,6 +307,7 @@ void UWeaponKitCameraRecoilComponent::StopRecoveryTimer()
 	}
 }
 
+// 延迟结束后只收回一部分俯仰，偏航累计直接清零，不再自动拉回左右。
 void UWeaponKitCameraRecoilComponent::RecoveryStep()
 {
 	UWorld* World = GetWorld();
@@ -318,6 +335,7 @@ void UWeaponKitCameraRecoilComponent::RecoveryStep()
 	{
 		bRecoveryStarted = true;
 		bRecoverImmediately = false;
+		// 按比例留下要收回的俯仰，其余视为玩家可以保留的上抬。
 		AccumulatedPitch *= ActiveRecoveryRatio;
 		AccumulatedYaw = 0.0f;
 		if (FMath::IsNearlyZero(AccumulatedPitch))
@@ -358,6 +376,7 @@ void UWeaponKitCameraRecoilComponent::RecoveryStep()
 	}
 }
 
+// 跳过等待，下一步就开始收俯仰。分离模式的镜头偏移不走这条路径。
 void UWeaponKitCameraRecoilComponent::StartRecovery()
 {
 	if (bIndependentVisualMode)
@@ -370,6 +389,7 @@ void UWeaponKitCameraRecoilComponent::StartRecovery()
 	StartRecoveryTimer();
 }
 
+// 停止恢复记账。已接受的尾巴继续播完，但不再计入可恢复角度。
 void UWeaponKitCameraRecoilComponent::NotifyManualLook()
 {
 	if (bIndependentVisualMode)
@@ -383,10 +403,12 @@ void UWeaponKitCameraRecoilComponent::NotifyManualLook()
 	bRecoverImmediately = false;
 	for (FWeaponKitRecoilKickEnvelope& Kick : PendingKicks)
 	{
+		// 尾巴仍会施加到视角，恢复逻辑不会把这段再拽回去。
 		Kick.bRecoverable = false;
 	}
 }
 
+// 去掉镜头附加偏移、恢复记账和未播完的控制器尾巴。
 void UWeaponKitCameraRecoilComponent::ClearRecoil()
 {
 	ClearIndependentVisual();
@@ -396,12 +418,14 @@ void UWeaponKitCameraRecoilComponent::ClearRecoil()
 	SetComponentTickEnabled(false);
 }
 
+// 结束时清后坐，避免摄像机上留下附加旋转。
 void UWeaponKitCameraRecoilComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearRecoil();
 	Super::EndPlay(EndPlayReason);
 }
 
+// 先抵消上一帧写过的附加变换，再写入当前俯仰 / 偏航。
 void UWeaponKitCameraRecoilComponent::WriteVisualOffset()
 {
 	if (UCameraComponent* Camera = VisualCamera.Get())
@@ -412,6 +436,7 @@ void UWeaponKitCameraRecoilComponent::WriteVisualOffset()
 	}
 }
 
+// 把摄像机附加偏移减掉，并退出分离模式。
 void UWeaponKitCameraRecoilComponent::ClearIndependentVisual()
 {
 	if (UCameraComponent* Camera = VisualCamera.Get())

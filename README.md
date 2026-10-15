@@ -38,6 +38,61 @@ git clone https://github.com/A1ex-F11/UEWeaponKit.git Plugins/WeaponKit
 
 `WeaponKit.Build.cs` 里 Niagara 是私有依赖：公开头文件只前向声明 Niagara 类型，真正刷参数的代码在 cpp 里。
 
+## 模块文件一览
+
+头文件里的类型、函数和 `UPROPERTY` 用 `/** */` 说明用途和调用方式。`.cpp` 里只在关键分支加简短行注释。`WeaponKit.uplugin` 是 JSON，不能写注释。
+
+### WeaponKit
+
+| 文件 | 作用 |
+| --- | --- |
+| `WeaponKit.uplugin` | 插件描述：运行时模块加 UncookedOnly 测试模块，默认关闭，依赖 Niagara。 |
+| `.gitignore` | 忽略插件编译生成的 `Binaries/`、`Intermediate/` 以及本地工程文件。 |
+| `Source/WeaponKit/WeaponKit.Build.cs` | 运行时模块构建规则。公开依赖引擎核心，Niagara 只给实现文件用。 |
+| `Source/WeaponKit/Public/WeaponKit.h` | 模块接口。启动和关闭目前不做额外注册。 |
+| `Source/WeaponKit/Private/WeaponKit.cpp` | 把该模块登记为 WeaponKit。 |
+| `Source/WeaponKit/Public/Math/FiringSpreadMath.h` | 连续射击散布的增加、上限和延迟恢复。 |
+| `Source/WeaponKit/Public/Math/ShotRecoilMath.h` | 弹道后坐的停火恢复，以及把俯仰 / 偏航加到射击方向上。 |
+| `Source/WeaponKit/Public/Math/RecoilKickEnvelope.h` | 一发镜头冲量的平滑包络，拆帧不改变总量。 |
+| `Source/WeaponKit/Public/Math/ShotTracerGeometry.h` | 曳光飞行时间和线段，不做伤害射线。 |
+| `Source/WeaponKit/Public/Data/WeaponKitTypes.h` | 开火模式、散布配置、拾取存档和伤害区域。 |
+| `Source/WeaponKit/Public/Data/WeaponKitBallisticsData.h` | 单发伤害、穿甲、爆头倍率和射线长度。 |
+| `Source/WeaponKit/Public/Data/WeaponKitRecoilData.h` | 固定后坐序列、随机冲量、镜头反馈和恢复。 |
+| `Source/WeaponKit/Private/Data/WeaponKitRecoilData.cpp` | 后坐资产的构造默认值。 |
+| `Source/WeaponKit/Public/Data/WeaponKitDefinitionData.h` | 一把枪的静态玩法配置。 |
+| `Source/WeaponKit/Private/Data/WeaponKitDefinitionData.cpp` | 创建内联后坐和弹道，并选择腰射或瞄准散布。 |
+| `Source/WeaponKit/Public/Damage/WeaponKitDamageLibrary.h` | 按骨骼区域结算伤害的蓝图函数。 |
+| `Source/WeaponKit/Private/Damage/WeaponKitDamageLibrary.cpp` | 区域查找、头盔优先于身体护甲，以及头 / 身体区域表。 |
+| `Source/WeaponKit/Public/Interfaces/WeaponKitInterfaces.h` | 携带者、槽位宿主、拾取物三个接口。 |
+| `Source/WeaponKit/Private/Interfaces/WeaponKitInterfaces.cpp` | 三个接口未覆盖时的默认回退。 |
+| `Source/WeaponKit/Public/Runtime/WeaponKitRuntime.h` | 武器 Actor，以及槽位存档和背包快照。 |
+| `Source/WeaponKit/Private/Runtime/WeaponKitRuntime.cpp` | 开火间隔、换弹、散布采样和后坐序列。 |
+| `Source/WeaponKit/Public/Runtime/WeaponKitChildActorSlot.h` | 用 Child Actor 实现的默认武器槽。 |
+| `Source/WeaponKit/Private/Runtime/WeaponKitChildActorSlot.cpp` | 生成和清空槽里的武器。 |
+| `Source/WeaponKit/Public/Runtime/WeaponKitPickup.h` | 默认可拾取武器，自动拾取体积由调用方指定。 |
+| `Source/WeaponKit/Private/Runtime/WeaponKitPickup.cpp` | 占用、丢枪冷却，以及自动拾取的重叠判断。 |
+| `Source/WeaponKit/Public/Runtime/WeaponKitInteractionScanner.h` | 登记附近拾取物，并按距离和视线选择目标。 |
+| `Source/WeaponKit/Private/Runtime/WeaponKitInteractionScanner.cpp` | 视线优先、否则取最近可见目标，并用定时器刷新瞄准。 |
+| `Source/WeaponKit/Public/Recoil/WeaponKitCameraRecoilComponent.h` | 把冲量写入控制旋转，或只偏移摄像机。 |
+| `Source/WeaponKit/Private/Recoil/WeaponKitCameraRecoilComponent.cpp` | 瞄准写视角，分离模式只做镜头反馈，并处理恢复。 |
+| `Source/WeaponKit/Public/Tracer/WeaponKitShotTracerComponent.h` | Niagara 曳光的速度、尺寸和可改参数名。 |
+| `Source/WeaponKit/Private/Tracer/WeaponKitShotTracerComponent.cpp` | 生成曳光、写入用户参数，并限制同时存在的数量。 |
+| `Source/WeaponKit/Public/Inventory/WeaponKitInventoryComponent.h` | 可变槽位背包的拾取、切枪、丢枪和读档接口。 |
+| `Source/WeaponKit/Private/Inventory/WeaponKitInventoryComponent.cpp` | 槽位校验、替换当前武器，以及丢枪后的自动补拾取。 |
+
+### WeaponKitTests
+
+| 文件 | 作用 |
+| --- | --- |
+| `Source/WeaponKitTests/WeaponKitTests.Build.cs` | 测试模块构建规则，私有依赖 WeaponKit，不打进正式包。 |
+| `Source/WeaponKitTests/Private/WeaponKitTests.cpp` | 登记测试模块，用例由自动化框架按 WeaponKit 前缀发现。 |
+| `Source/WeaponKitTests/Private/WeaponKitTestWorld.h` | 为运行时和背包测试创建临时 Game 世界。 |
+| `Source/WeaponKitTests/Private/WeaponKitTestCarrier.h` | 实现携带者接口的测试 Pawn，可开关死亡和首抽标记。 |
+| `Source/WeaponKitTests/Private/WeaponKitMathTests.cpp` | 散布、弹道后坐、冲量包络、曳光几何和伤害区域测试。 |
+| `Source/WeaponKitTests/Private/WeaponKitRuntimeTests.cpp` | 初始配置、连续射击散布，以及瞄准时忽略弹道后坐。 |
+| `Source/WeaponKitTests/Private/WeaponKitInventoryTests.cpp` | 镜头后坐写入、背包读档切换丢弃，以及扫描器筛选。 |
+
+
 ## 装进任意 UE 5.8 工程
 
 1. 按上面的「仓库布局」，把本仓库放到目标工程的 `Plugins/WeaponKit`（克隆时把目录名写成 `WeaponKit`，或复制根目录里的文件）。如果该工程的 `.gitignore` 忽略了 `Plugins/`，要单独放行这个目录，否则源码不会进版本库。
