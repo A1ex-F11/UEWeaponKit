@@ -1,0 +1,14 @@
+# Unreal Engine plugin build products (generated inside a project when this plugin compiles).
+Binaries/
+Intermediate/
+
+# Local IDE / generated project files that appear beside the plugin.
+DerivedDataCache/
+Saved/
+.vs/
+.idea/
+*.sln
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
