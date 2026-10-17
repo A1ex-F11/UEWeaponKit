@@ -27,7 +27,7 @@ bool UWeaponKitInventoryComponent::IsUsablePickupActorClass(TSubclassOf<AActor> 
 {
 	UClass* Class = PickupClass.Get();
 	return Class && Class->IsChildOf(AActor::StaticClass()) &&
-		Class->ImplementsInterface(UWeaponKitPickup::StaticClass()) &&
+		Class->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()) &&
 		!Class->HasAnyClassFlags(CLASS_Abstract);
 }
 
@@ -535,12 +535,12 @@ AActor* UWeaponKitInventoryComponent::SpawnStagedPickup(
 		OwnerActor,
 		OwnerPawn,
 		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
-	if (!IsValid(Pickup) || !Pickup->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
+	if (!IsValid(Pickup) || !Pickup->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()))
 	{
 		return nullptr;
 	}
 
-	IWeaponKitPickup::Execute_InitializeDroppedWeapon(
+	IWeaponKitPickupInterface::Execute_InitializeDroppedWeapon(
 		Pickup,
 		WeaponClass,
 		State,
@@ -566,10 +566,10 @@ void UWeaponKitInventoryComponent::LaunchStagedPickup(AActor* Pickup) const
 	}
 	Pickup->SetActorHiddenInGame(false);
 	Pickup->SetActorEnableCollision(true);
-	if (Pickup->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
+	if (Pickup->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()))
 	{
 		const FVector Forward = IsValid(GetOwner()) ? GetOwner()->GetActorForwardVector().GetSafeNormal() : FVector::ForwardVector;
-		IWeaponKitPickup::Execute_LaunchDroppedWeapon(Pickup, Forward);
+		IWeaponKitPickupInterface::Execute_LaunchDroppedWeapon(Pickup, Forward);
 	}
 }
 
@@ -590,9 +590,9 @@ void UWeaponKitInventoryComponent::ConsumePickupSource(AActor* Source)
 // 生成武器失败时允许这把拾取物再次被捡。
 void UWeaponKitInventoryComponent::ReleasePickupClaim(AActor* Source) const
 {
-	if (IsValid(Source) && Source->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
+	if (IsValid(Source) && Source->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()))
 	{
-		IWeaponKitPickup::Execute_ReleasePickupClaim(Source);
+		IWeaponKitPickupInterface::Execute_ReleasePickupClaim(Source);
 	}
 }
 
@@ -607,7 +607,7 @@ bool UWeaponKitInventoryComponent::TryPickup(AActor* Source, bool bAllowReplaceC
 	TGuardValue<bool> BusyGuard(bInventoryBusy, true);
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!IsOperational() || !IsValid(Pawn) || !IsValid(Source) || Source->IsActorBeingDestroyed() ||
-		!Source->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
+		!Source->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()))
 	{
 		return false;
 	}
@@ -637,17 +637,17 @@ bool UWeaponKitInventoryComponent::TryPickup(AActor* Source, bool bAllowReplaceC
 		return false;
 	}
 	// 手动替换不要求重叠体积；自动拾取（不允许替换）才检查体积。
-	if (!IWeaponKitPickup::Execute_CanBePickedUpBy(Source, Pawn, !bAllowReplaceCurrent))
+	if (!IWeaponKitPickupInterface::Execute_CanBePickedUpBy(Source, Pawn, !bAllowReplaceCurrent))
 	{
 		return false;
 	}
 
-	const TSubclassOf<AWeaponKitRuntime> IncomingClass = IWeaponKitPickup::Execute_GetPickupWeaponClass(Source);
-	if (!IsUsableWeaponClass(IncomingClass) || !IWeaponKitPickup::Execute_TryClaimPickup(Source, Pawn, !bAllowReplaceCurrent))
+	const TSubclassOf<AWeaponKitRuntime> IncomingClass = IWeaponKitPickupInterface::Execute_GetPickupWeaponClass(Source);
+	if (!IsUsableWeaponClass(IncomingClass) || !IWeaponKitPickupInterface::Execute_TryClaimPickup(Source, Pawn, !bAllowReplaceCurrent))
 	{
 		return false;
 	}
-	const FWeaponKitPickupState IncomingState = IWeaponKitPickup::Execute_GetPickupSavedState(Source);
+	const FWeaponKitPickupState IncomingState = IWeaponKitPickupInterface::Execute_GetPickupSavedState(Source);
 	if (EmptySlotIndex == INDEX_NONE)
 	{
 		return TryReplaceCurrentFromPickup(Source, IncomingClass, IncomingState);

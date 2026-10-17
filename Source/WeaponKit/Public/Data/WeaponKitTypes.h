@@ -5,7 +5,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Data/WeaponKitTypes.generated.h"
+#include "WeaponKitTypes.generated.h"
 
 /** 一把枪允许切换的开火模式。默认模式和允许列表都配在 UWeaponKitDefinitionData 上。 */
 UENUM(BlueprintType)
@@ -19,6 +19,15 @@ enum class EWeaponKitFireMode : uint8
 	Burst UMETA(DisplayName = "三连发"),
 };
 
+/** 逐颗装填与空仓整批行为的单一配置选项。 */
+UENUM(BlueprintType)
+enum class EWeaponKitReloadStyle : uint8
+{
+	Magazine UMETA(DisplayName = "整弹匣装填"),
+	PerRound UMETA(DisplayName = "逐颗装填"),
+	PerRoundOrEmptyBatch UMETA(DisplayName = "逐颗，全空且备弹充足时整批")
+};
+
 /**
  * 腰射和瞄准共用的散布形状。连续射击散布也写在同一份配置里。
  * 瞄准是否改用另一份，由 UWeaponKitDefinitionData::bUseSeparateAimingSpread 决定。
@@ -27,6 +36,10 @@ USTRUCT(BlueprintType)
 struct WEAPONKIT_API FWeaponKitSpreadProfile
 {
 	GENERATED_BODY()
+
+	/** 新精度配置把姿态惩罚叠加到基础散布；旧序列化配置仍按姿态选择绝对角度。 */
+	UPROPERTY(BlueprintReadOnly, Category = "WeaponKit|Compatibility")
+	bool bUseAdditiveStateSpread = false;
 
 	/** 站立且水平速度不超过移动阈值时的锥角（度）。下蹲也使用这一项。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "静止散布角度", ClampMin = "0.0"))

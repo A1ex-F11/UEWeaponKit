@@ -286,11 +286,12 @@ bool FWeaponKitScannerTest::RunTest(const FString& Parameter)
 	FWeaponKitPickupState State;
 	State.bHasSavedState = true;
 	State.CurrentAmmo = 3;
-	IWeaponKitPickup::Execute_InitializeDroppedWeapon(Pickup, AWeaponKitRuntime::StaticClass(), State, nullptr, 0.0f);
+	IWeaponKitPickupInterface::Execute_InitializeDroppedWeapon(Pickup, AWeaponKitRuntime::StaticClass(), State, nullptr, 0.0f);
 	TestTrue(TEXT("Interface pickup can be registered"), Scanner->RegisterPickup(Pickup));
 	TestTrue(TEXT("Nearby manual pickup is selected"), Scanner->GetManualPickup() == Pickup);
 
-	Pickup->SetActorLocation(Carrier->GetActorLocation() + FVector(5000.0f, 0.0f, 0.0f));
+	TestNotNull(TEXT("Default pickup has a movable root"), Pickup->GetRootComponent());
+	TestTrue(TEXT("Pickup can move outside interaction range"), Pickup->SetActorLocation(Carrier->GetActorLocation() + FVector(5000.0f, 0.0f, 0.0f)));
 	TestNull(TEXT("Distance limit rejects the pickup"), Scanner->GetManualPickup());
 	Pickup->SetActorLocation(Carrier->GetActorLocation());
 	Carrier->bAlive = false;

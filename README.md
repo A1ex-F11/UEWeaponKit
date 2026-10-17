@@ -1,8 +1,39 @@
 # WeaponKit
 
-从 Dust FPS 演示里抽出来的 **UE 5.8 运行时插件**。它只依赖引擎模块（Core、CoreUObject、Engine，以及曳光用的 Niagara），不包含 Dust2 角色、表现层、关卡或任务代码。拷贝到别的工程后，用自己的角色调用公开接口即可。
+从 Dust FPS 演示里抽出来的 **UE 5.8 运行时插件**。它只依赖引擎模块（Core、CoreUObject、Engine、准星用的 UMG/Slate，以及曳光用的 Niagara），不包含 Dust2 角色、表现层、关卡或任务代码。拷贝到别的工程后，用自己的角色调用公开接口即可。
 
 反射类型统一加了 `WeaponKit` 前缀，导出宏是 `WEAPONKIT_API`。这样插件可以和 Dust2 放在同一个工程里，而不会和原来的 `AWeaponRuntime`、`UWeaponDefinitionData` 等同名类冲突。
+
+## 2026-10-17：统一配置与可复用准星
+
+本仓库收录的是**配置类、结构和接口代码**，不包含 Dust2 五把枪的实际数值、JSON、`.uasset`、模型、声音或关卡。代码里的构造默认值和自动化测试夹具仅用于类型默认行为与验证，不代表某把枪的平衡配置。
+
+- `UWeaponKitDefinitionData`：开火模式列表首项作为初始模式；装填方式用 `EWeaponKitReloadStyle`。弹匣容量与初始装弹数仍独立。
+- `FWeaponKitIntuitiveAccuracy`：常调基础散布、射击累计上限、参考发数和恢复秒数；引用 `UWeaponKitAccuracyPreset` 提供姿态惩罚，可以单枪覆盖。
+- `UWeaponKitCameraFeedbackPreset`：共享镜头回落/平滑/立即施加比例；每枪保留反馈强度和独立覆盖。
+- 新建持久资产直接使用统一配置；旧包在 `PostLoad` 迁移，旧 transient C++ 配置仍可按旧字段运行。旧射击节奏精确保留至首次修改四项精度字段；只改姿态不清旧射击节奏。
+- `AWeaponKitRuntime::GetCurrentTotalSpreadAngle` 与实际射击共用同一份姿态/累计解析，可以给调用方的准星投影使用。
+- `UWeaponKitCrosshairStyleData`：长度、粗细、中心间距、颜色/透明度、动态扩散开关、显示强度。
+- `UWeaponKitCrosshairWidget`：四线绘制，实例样式覆盖优先于资产；不认识 Dust2 角色、武器槽位和关卡。
+- `FWeaponKitCrosshairDisplayTransitionState`：纯数学的跟随/限时平滑；调用方把实际拔枪剩余时间传给 `ConstrainRemainingTime`，不依赖本仓库的动画系统。
+
+### 在其他项目接准星
+
+1. 建一个继承 `WeaponKitCrosshairWidget` 的 Widget Blueprint，按游戏需要放入HUD。
+2. 创建 `WeaponKitCrosshairStyleData` 数据资产，设置默认外观，在控件上选择它。
+3. 游戏侧根据武器总散布和相机视野得到投影间距。先调用 `ResolveStyleTargetGap`，再把结果送进平滑过渡，最后调用 `SetCrosshairGap`。显示强度只在目标解析处应用一次。
+4. 切枪/拔枪开始时调用纯数学状态的过渡接口。瞄准隐藏、暂停、死亡与HUD显隐由宿主负责。
+5. 玩家设置菜单调用 `ApplyStyleOverride` / `ClearStyleOverride`；用自己的 SaveGame 或用户设置保存玩家选项，不能写共享DataAsset。
+
+关闭动态扩散只固定准星间距，不改变弹道。样式显示强度与枪械真实精度无关。`SetCrosshairGap` 接收已经解析/平滑后的显示间距，不会再次放大。
+
+头文件入口：`Data/WeaponKitCrosshairStyleData.h`、`UI/WeaponKitCrosshairWidget.h`、`Math/WeaponKitCrosshairDisplayMath.h`。新的UI公开头依赖UMG，模块构建规则已声明相关引擎依赖。
+
+### 本次兼容修正
+
+早期仓库尚未经过UHT。本次首次独立编译修正了所有 `.generated.h` 的目录前缀，并把拾取接口改名为 `UWeaponKitPickupInterface` / `IWeaponKitPickupInterface`，避免与 `AWeaponKitPickup` 共享反射名。默认拾取物另补根组件，确保原生 Actor 能移动且距离判定读取实际位置。手写实现该旧接口的代码须采用新接口名。Actor名称不变。
+
+命中/击杀声音、临时准星变化以及玩家设置菜单尚未包含在插件里；它们是 Dust2 W12 的后续计划，不冒充本次已实现功能。
 
 ## 仓库布局
 
@@ -18,7 +49,7 @@ git clone https://github.com/A1ex-F11/UEWeaponKit.git Plugins/WeaponKit
 
 源码从 [Dust](https://github.com/A1ex-F11/Dust) 分支 `cursor/weapon-kit-plugin-2152` 的 `Plugins/WeaponKit` 原样搬出（[PR #1](https://github.com/A1ex-F11/Dust/pull/1)）。`.gitignore` 忽略插件编译时生成的 `Binaries/` 和 `Intermediate/`。
 
-> **尚未编译。** 从 Dust 抽出时，以及放进本仓库之后，都没有用 Unreal Editor 或 Unreal Build Tool 编译过，下面列出的自动化测试也没有跑过。在 UE 5.8 工程里启用插件后的第一次编译，才是这些模块声明能否通过 UHT 的依据。
+> **2026-10-17 已独立验证。** 在全新 UE 5.8 C++ 宿主中编译通过，不依赖 Dust2 模块或资产；`WeaponKit.*` 自动化测试 28/28 成功。此前“尚未编译”是历史状态。本次包含真实编译发现的 generated 头引用及拾取接口反射重名修复。尚未替用户的目标项目验证完整玩法或打包。
 
 
 ## 目录
@@ -111,7 +142,7 @@ git clone https://github.com/A1ex-F11/UEWeaponKit.git Plugins/WeaponKit
 PrivateDependencyModuleNames.Add("WeaponKit");
 ```
 
-4. 重新生成工程文件并编译。不要再依赖 Dust2。角色、动画、准星和换弹表现留在游戏模块里，由游戏在合适的时机调用下面的接口。
+4. 重新生成工程文件并编译。不要再依赖 Dust2。角色、动画、准星的武器投影/显隐接入和换弹表现留在游戏模块里，由游戏在合适的时机调用下面的接口。
 
 插件描述里 `EnabledByDefault` 是 `false`。放进 Dust 工程时，不打开它就不会参与编译，原来的 Dust2 模块保持原样。
 
@@ -127,7 +158,7 @@ PrivateDependencyModuleNames.Add("WeaponKit");
 
 ### 数学
 
-四个头文件都是纯函数或很小的状态结构，不碰 World，也不读资产。
+数学头文件是纯函数或很小的状态结构，不碰 World，也不读资产。
 
 - `FWeaponKitFiringSpreadMath`：连续射击散布的增加和延迟恢复。非法数值会收成 0。
 - `FWeaponKitShotRecoilMath`：把累计的俯仰 / 偏航加到射击方向上，并按停火时间收回。瞄准时武器不会把这份偏移再加一次，下一发用的就是调用方给的视线。
@@ -138,7 +169,7 @@ PrivateDependencyModuleNames.Add("WeaponKit");
 
 `UWeaponKitDefinitionData` 是一把枪的静态配置。运行时弹药、当前开火模式、散布累计都在 `AWeaponKitRuntime` 上，打出去的子弹不会改共享资产。
 
-腰射和瞄准使用同一种 `FWeaponKitSpreadProfile`（基础锥角和连续射击散布都在里面）。`bUseSeparateAimingSpread` 为 false 时，瞄准沿用腰射那一份。
+当前腰射和瞄准编辑 `HipAccuracy` / `AimAccuracy`，由四项精度与姿态预设派生 `FWeaponKitSpreadProfile`；`bUseAimingSpread` 为 false 时沿用腰射。`bUseSeparateAimingSpread` 与旧原始锥角仅保留兼容迁移。统一模式按基础＋水平移动或静步＋空中＋射击累计计算；旧模式仍保留旧蹲姿选择规则，新模式不提供蹲姿精度奖励。
 
 `UWeaponKitRecoilData`、`UWeaponKitBallisticsData` 在配置资产的构造函数里作为内联子对象创建，并标成 `RF_Public`，方便在编辑器里展开。弹道资产上的爆头倍率只是一个数；哪根骨骼算头，由伤害区域表决定。
 
@@ -170,7 +201,7 @@ PrivateDependencyModuleNames.Add("WeaponKit");
 
 - `IWeaponKitSlotHost`：一个槽位如何生成和清空武器。`UWeaponKitChildActorSlot` 是用 Child Actor 做的默认实现，背包不依赖这个具体类。
 - `UWeaponKitInventoryComponent`：槽位个数等于初始化时传入的宿主数量。切换会找下一个有枪的槽。身上至少还留一把枪时才允许丢弃当前武器。
-- `IWeaponKitPickup` / `AWeaponKitPickup`：背包只认接口。丢枪时用 `PickupClassByWeaponClass` 里登记的 Actor 类生成，这个类必须实现接口。
+- `IWeaponKitPickupInterface` / `AWeaponKitPickup`：背包只认接口。丢枪时用 `PickupClassByWeaponClass` 里登记的 Actor 类生成，这个类必须实现接口。
 - `UWeaponKitInteractionScanner`：登记附近的拾取物，按距离、视线和存活状态选出手动或自动目标，并用定时器刷新「当前瞄准的拾取物」。自动拾取要求接口返回的重叠体正在和 Pawn 重叠。
 - `IWeaponKitCarrier`：可选。用来回答「还活着吗」和「这把枪的首抽动画是否已经播过」。
 
@@ -189,12 +220,12 @@ Dust 里这些类型当时直接服务于 `ADust2PlayerCharacter` 和两格背�
 | 点 | 之前 | 之后 |
 | --- | --- | --- |
 | 瞄准 | `AWeaponRuntime` 和镜头后坐组件把 `ADust2PlayerCharacter` 设为 `friend`，由角色调用私有的 `SetOwnerAimState` / `SetAimingRecoilMode`。 | 两个 `SetAiming(bool)` 都是公开 API。角色、AI 或测试代码都可以调用。 |
-| 腰射 / 瞄准散布 | 腰射是配置资产上的一排散落字段，瞄准才是 `FWeaponSpreadProfile`，另外还有只序列化、不再参与计算的 `bIgnoreShotRecoilWhenAiming`。 | 两边都是 `FWeaponKitSpreadProfile`。瞄准是否使用独立配置由 `bUseSeparateAimingSpread` 决定。瞄准时忽略弹道后坐是运行时规则，不再靠遗留布尔值。 |
+| 腰射 / 瞄准散布 | 腰射是配置资产上的一排散落字段，瞄准才是 `FWeaponSpreadProfile`，另外还有只序列化、不再参与计算的 `bIgnoreShotRecoilWhenAiming`。 | 统一四项精度与姿态预设；运行时派生 `FWeaponKitSpreadProfile`。瞄准是否使用独立配置由 `bUseAimingSpread` 决定。瞄准时忽略弹道后坐是运行时规则，不再靠遗留布尔值。 |
 | 蓝图兜底 | 武器 Actor 上有一套 `EditCondition = WeaponDefinition == nullptr` 的字段；弹道和连发恢复间隔用属性名反射写回蓝图。`CaptureDefinition` 和 `SyncLegacyWeaponReferences` 是迁移 / 旧变量镜像。 | 这些入口都没有搬进来。静态数据只住在 DataAsset 里。展示名、弹道、连发恢复间隔通过读取函数拿。 |
 | 镜头后坐入口 | `ApplyRecoilKick` 是不带数据资产的兼容入口，`ApplyRecoilKickWithData` 再分流到旧路径。 | 只保留 `ApplyRecoil`。随机后坐的累计上限仍是组件上的可配置值，而不是一条单独的兼容函数。 |
 | 背包槽位 | 写死 `Slot1` / `Slot2` 两个 `UChildActorComponent`。 | `TArray` 槽位，元素是 `IWeaponKitSlotHost`。 |
 | 存档 | `RestoreCheckpointWeapons` 有 13 个参数（两个槽的类、弹药、开火模式、首抽标记，再加谁是当前武器）。 | `RestoreLoadout(槽位, FWeaponKitLoadoutSave)`。 |
-| 拾取 | 背包直接依赖 `AWeaponPickupActor`，并 `Cast` 到 `ADust2PlayerCharacter` 查死亡、附近武器和首抽。 | 背包只调用 `IWeaponKitPickup` 和可选的 `IWeaponKitCarrier`。 |
+| 拾取 | 背包直接依赖 `AWeaponPickupActor`，并 `Cast` 到 `ADust2PlayerCharacter` 查死亡、附近武器和首抽。 | 背包只调用 `IWeaponKitPickupInterface` 和可选的 `IWeaponKitCarrier`。 |
 | 交互 | 自动拾取体积靠组件名 `AutoPickupCollision` 查找；附近武器和瞄准武器的射线写在角色里。 | 体积由 `SetAutoPickupVolume` 指定。`UWeaponKitInteractionScanner` 单独负责登记、距离、视线和瞄准回调。 |
 | 伤害 | `UDamageLibrary` 写死骨骼名 `"head"`。 | 骨骼到区域的映射是数据。不在表里的骨骼走身体规则。 |
 | 曳光 | Niagara 参数名写在代码里；编辑器测试还加载 Dust 的特效资产。 | 参数名是组件属性。插件测试只检查几何和一个未配置组件的失败路径。 |
@@ -202,6 +233,8 @@ Dust 里这些类型当时直接服务于 `ADust2PlayerCharacter` 和两格背�
 没有搬进插件的部分：`WeaponPresentationComponent`、武器数据迁移和特效搭建脚本、GameMode、任务流程，以及玩家角色本身。角色上的瞄准输入、换弹表现和血量仍然属于游戏。
 
 ## 自动化测试
+
+当前另含配置迁移、新建资产首次编辑、共享预设、散布同源及准星样式/过渡用例，以独立宿主实际测试结果为准。
 
 启用插件后，在编辑器 **Session Frontend → Automation** 里筛选 `WeaponKit`。测试名前缀从原来的 `Dust2.*` 改成了 `WeaponKit.*`。
 
@@ -225,4 +258,4 @@ Dust 里这些类型当时直接服务于 `ADust2PlayerCharacter` 和两格背�
 
 ## 验证边界
 
-这份插件是按 UE 5.8 的模块、UHT 和自动化测试写法整理的。从 Dust 抽出时没有安装 Unreal Editor，也没有编译 UBT；原样放进本仓库时同样 **没有实际编译，也没有跑过上面的自动化测试**。启用插件后的第一次编译，才是这些声明能否通过 UHT 的依据。
+2026-10-17：独立空白宿主真实 Editor 构建成功，`WeaponKit.*` 共 28 项成功、0失败。验证覆盖该宿主中的原生接口、配置迁移、散布/后坐、预设共享和准星样式。未验证所有 UE 版本、目标项目资源、PIE观感或打包；不能把原生测试通过称为任意项目开箱即用。

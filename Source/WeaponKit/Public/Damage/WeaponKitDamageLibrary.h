@@ -7,7 +7,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Data/WeaponKitTypes.h"
-#include "Damage/WeaponKitDamageLibrary.generated.h"
+#include "WeaponKitDamageLibrary.generated.h"
 
 /**
  * 伤害结算函数库。没有状态。

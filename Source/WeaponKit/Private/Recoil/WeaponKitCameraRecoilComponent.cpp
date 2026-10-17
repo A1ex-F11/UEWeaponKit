@@ -62,9 +62,9 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 		QueueKick(
 			PitchKick * Scale,
 			YawKick * Scale,
-			WeaponKitSafeNonNegative(RecoilSettings->SmoothKickDuration),
-			FMath::IsFinite(RecoilSettings->ImmediateKickFraction)
-				? FMath::Clamp(RecoilSettings->ImmediateKickFraction, 0.0f, 1.0f)
+			WeaponKitSafeNonNegative(RecoilSettings->GetSmoothKickDuration()),
+			FMath::IsFinite(RecoilSettings->GetImmediateKickFraction())
+				? FMath::Clamp(RecoilSettings->GetImmediateKickFraction(), 0.0f, 1.0f)
 				: 1.0f,
 			false);
 		return;
@@ -93,9 +93,9 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 		QueueKick(
 			PitchKick,
 			YawKick,
-			WeaponKitSafeNonNegative(RecoilSettings->SmoothKickDuration),
-			FMath::IsFinite(RecoilSettings->ImmediateKickFraction)
-				? FMath::Clamp(RecoilSettings->ImmediateKickFraction, 0.0f, 1.0f)
+			WeaponKitSafeNonNegative(RecoilSettings->GetSmoothKickDuration()),
+			FMath::IsFinite(RecoilSettings->GetImmediateKickFraction())
+				? FMath::Clamp(RecoilSettings->GetImmediateKickFraction(), 0.0f, 1.0f)
 				: 1.0f,
 			false);
 		return;
@@ -115,11 +115,11 @@ void UWeaponKitCameraRecoilComponent::ApplyRecoil(
 	const float Scale = FMath::IsFinite(RecoilSettings->CameraFeedbackScale)
 		? FMath::Max(0.0f, RecoilSettings->CameraFeedbackScale)
 		: 0.0f;
-	VisualReturnSpeed = FMath::Max(0.1f, WeaponKitSafeNonNegative(RecoilSettings->CameraReturnSpeed, 12.0f));
+	VisualReturnSpeed = FMath::Max(0.1f, WeaponKitSafeNonNegative(RecoilSettings->GetCameraReturnSpeed(), 12.0f));
 	const FVector2D Kick(FMath::Max(0.0f, PitchKick) * Scale, YawKick * Scale);
-	const float Duration = WeaponKitSafeNonNegative(RecoilSettings->SmoothKickDuration);
-	const float Immediate = FMath::IsFinite(RecoilSettings->ImmediateKickFraction)
-		? FMath::Clamp(RecoilSettings->ImmediateKickFraction, 0.0f, 1.0f)
+	const float Duration = WeaponKitSafeNonNegative(RecoilSettings->GetSmoothKickDuration());
+	const float Immediate = FMath::IsFinite(RecoilSettings->GetImmediateKickFraction())
+		? FMath::Clamp(RecoilSettings->GetImmediateKickFraction(), 0.0f, 1.0f)
 		: 1.0f;
 	VisualOffset += Duration <= KINDA_SMALL_NUMBER ? Kick : Kick * Immediate;
 	if (Duration > KINDA_SMALL_NUMBER)

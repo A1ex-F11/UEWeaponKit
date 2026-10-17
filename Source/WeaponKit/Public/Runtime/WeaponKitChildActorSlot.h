@@ -7,7 +7,7 @@
 #include "CoreMinimal.h"
 #include "Components/ChildActorComponent.h"
 #include "Interfaces/WeaponKitInterfaces.h"
-#include "Runtime/WeaponKitChildActorSlot.generated.h"
+#include "WeaponKitChildActorSlot.generated.h"
 
 class AWeaponKitRuntime;
 

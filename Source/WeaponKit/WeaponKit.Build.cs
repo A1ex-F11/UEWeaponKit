@@ -16,13 +16,16 @@ public class WeaponKit : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
+            "UMG",
+            "SlateCore"
 		});
 
 		// Niagara 只在曳光实现里使用。公开头只前向声明，避免把特效依赖泄漏给游戏模块。
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Niagara"
+			"Niagara",
+            "Slate"
 		});
 	}
 }

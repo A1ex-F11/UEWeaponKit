@@ -1,5 +1,5 @@
 /**
- * 默认可拾取武器 Actor，实现 IWeaponKitPickup。
+ * 默认可拾取武器 Actor，实现 IWeaponKitPickupInterface。
  * 丢枪时由背包按 PickupClassByWeaponClass 生成。自动拾取体积用 SetAutoPickupVolume 指定，不按组件名搜索。
  */
 #pragma once
@@ -7,7 +7,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interfaces/WeaponKitInterfaces.h"
-#include "Runtime/WeaponKitPickup.generated.h"
+#include "WeaponKitPickup.generated.h"
 
 class APawn;
 class UPrimitiveComponent;
@@ -17,7 +17,7 @@ class UPrimitiveComponent;
  * 蓝图子类设置武器类；运行时丢枪会改写武器类、存档状态和自动拾取冷却。
  */
 UCLASS(Blueprintable)
-class WEAPONKIT_API AWeaponKitPickup : public AActor, public IWeaponKitPickup
+class WEAPONKIT_API AWeaponKitPickup : public AActor, public IWeaponKitPickupInterface
 {
 	GENERATED_BODY()
 

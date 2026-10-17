@@ -1,6 +1,7 @@
 // 默认拾取物。手动拾取不看体积；自动拾取要求指定体积正在重叠，并遵守丢枪冷却。
 #include "Runtime/WeaponKitPickup.h"
 #include "Components/PrimitiveComponent.h"
+#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "Interfaces/WeaponKitInterfaces.h"
@@ -10,6 +11,7 @@
 AWeaponKitPickup::AWeaponKitPickup()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("PickupRoot")));
 }
 
 // 返回当前武器类。丢枪初始化会改写它。
@@ -59,7 +61,7 @@ bool AWeaponKitPickup::CanBePickedUpBy_Implementation(const APawn* Pawn, bool bA
 	{
 		return false;
 	}
-	const UPrimitiveComponent* Volume = IWeaponKitPickup::Execute_GetAutoPickupVolume(this);
+	const UPrimitiveComponent* Volume = IWeaponKitPickupInterface::Execute_GetAutoPickupVolume(this);
 	// 只认 SetAutoPickupVolume 指定的体积，不搜索名为 AutoPickupCollision 的组件。
 	return Volume && Volume->IsRegistered() && Volume->IsOverlappingActor(Pawn);
 }
@@ -67,7 +69,7 @@ bool AWeaponKitPickup::CanBePickedUpBy_Implementation(const APawn* Pawn, bool bA
 // 再次检查条件后置占用标记，避免同一次交互生成两把枪。
 bool AWeaponKitPickup::TryClaimPickup_Implementation(APawn* Pawn, bool bAutomatic)
 {
-	if (!IWeaponKitPickup::Execute_CanBePickedUpBy(this, Pawn, bAutomatic))
+	if (!IWeaponKitPickupInterface::Execute_CanBePickedUpBy(this, Pawn, bAutomatic))
 	{
 		return false;
 	}

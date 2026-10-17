@@ -9,7 +9,7 @@
 #include "Engine/EngineTypes.h"
 #include "Interfaces/WeaponKitInterfaces.h"
 #include "TimerManager.h"
-#include "Runtime/WeaponKitInteractionScanner.generated.h"
+#include "WeaponKitInteractionScanner.generated.h"
 
 class APawn;
 
@@ -29,7 +29,7 @@ public:
 	/** 关闭 Tick，改用定时器刷新瞄准拾取物。 */
 	UWeaponKitInteractionScanner();
 
-	/** 把实现了 IWeaponKitPickup 的 Actor 登记到附近列表，并立刻刷新一次瞄准。重复登记会被忽略。 */
+	/** 把实现了 IWeaponKitPickupInterface 的 Actor 登记到附近列表，并立刻刷新一次瞄准。重复登记会被忽略。 */
 	UFUNCTION(BlueprintCallable, Category = "WeaponKit|Scanner")
 	bool RegisterPickup(AActor* Pickup);
 

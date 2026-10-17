@@ -1,6 +1,6 @@
 /**
  * 可变槽位背包。槽位个数等于初始化时传入的 IWeaponKitSlotHost 数量。
- * 拾取物只通过 IWeaponKitPickup 交流。扫描器只在丢枪成功后用来找脚边的下一把，选择逻辑不写在背包里。
+ * 拾取物只通过 IWeaponKitPickupInterface 交流。扫描器只在丢枪成功后用来找脚边的下一把，选择逻辑不写在背包里。
  */
 #pragma once
 
@@ -10,7 +10,7 @@
 #include "UObject/ScriptInterface.h"
 #include "Interfaces/WeaponKitInterfaces.h"
 #include "Runtime/WeaponKitRuntime.h"
-#include "Inventory/WeaponKitInventoryComponent.generated.h"
+#include "WeaponKitInventoryComponent.generated.h"
 
 class UWeaponKitInteractionScanner;
 
@@ -82,7 +82,7 @@ public:
 	bool ShouldRefreshEquippedPresentation() const { return bEquippedPresentationRefreshRequested; }
 
 	/**
-	 * 捡起 Source。Source 必须实现 IWeaponKitPickup。
+	 * 捡起 Source。Source 必须实现 IWeaponKitPickupInterface。
 	 * 有空槽时放进第一个空槽；没有空槽时，仅当 bAllowReplaceCurrent 为 true 才替换当前武器。
 	 * 玩家手动拾取传 true，自动拾取传 false。
 	 */
@@ -103,7 +103,7 @@ public:
 
 	/**
 	 * 丢掉当前武器。身上至少还要留一把枪。
-	 * 丢出的 Actor 类来自 PickupClassByWeaponClass，并且必须实现 IWeaponKitPickup。
+	 * 丢出的 Actor 类来自 PickupClassByWeaponClass，并且必须实现 IWeaponKitPickupInterface。
 	 * 成功后若指定了扫描器，会再问一次自动拾取候选。
 	 */
 	UFUNCTION(BlueprintCallable, Category = "WeaponKit|Inventory")
@@ -129,7 +129,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponKit|Inventory")
 	TObjectPtr<UWeaponKitInteractionScanner> InteractionScanner;
 
-	/** 武器类到拾取物类的对照。丢枪时用它生成 Actor，值必须实现 IWeaponKitPickup。 */
+	/** 武器类到拾取物类的对照。丢枪时用它生成 Actor，值必须实现 IWeaponKitPickupInterface。 */
 	UPROPERTY(EditDefaultsOnly, Category = "WeaponKit|Inventory|Drop")
 	TMap<TSubclassOf<AWeaponKitRuntime>, TSubclassOf<AActor>> PickupClassByWeaponClass;
 
@@ -216,7 +216,7 @@ private:
 	/** 武器类非空、派生自 AWeaponKitRuntime，且不是抽象类。 */
 	static bool IsUsableWeaponClass(TSubclassOf<AWeaponKitRuntime> WeaponClass);
 
-	/** 拾取物类派生自 Actor、实现 IWeaponKitPickup，且不是抽象类。 */
+	/** 拾取物类派生自 Actor、实现 IWeaponKitPickupInterface，且不是抽象类。 */
 	static bool IsUsablePickupActorClass(TSubclassOf<AActor> PickupClass);
 
 	/** 初始化时记下的槽位宿主。 */

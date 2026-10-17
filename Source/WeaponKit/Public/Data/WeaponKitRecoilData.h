@@ -6,7 +6,8 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "Data/WeaponKitRecoilData.generated.h"
+#include "Data/WeaponKitCameraFeedbackPreset.h"
+#include "WeaponKitRecoilData.generated.h"
 
 /**
  * 一把枪的后坐与镜头设置。
@@ -40,9 +41,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "镜头反馈倍率", ClampMin = "0.0", UIMax = "5.0", ToolTip = "仅缩放镜头反馈；允许大于1，0关闭反馈，不改变射击方向。"))
 	float CameraFeedbackScale = 0.25f;
 
-	/** 分离模式下镜头偏移回到零的速度。越大回落越快，最小按 0.1 使用。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "镜头回落速度", ToolTip = "镜头冲击回到正常视角的速度；越大回落越快。", ClampMin = "0.1"))
+	/** 兼容旧资产；新配置优先读取预设或枪械覆盖值。 */
+	UPROPERTY(BlueprintReadOnly, Category = "WeaponKit|Compatibility")
 	float CameraReturnSpeed = 12.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "镜头反馈预设"))
+	TObjectPtr<UWeaponKitCameraFeedbackPreset> CameraFeedbackPreset = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "使用枪械独立镜头参数"))
+	bool bOverrideCameraFeedback = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "枪械镜头参数", EditCondition = "bOverrideCameraFeedback", EditConditionHides))
+	FWeaponKitCameraFeedbackParameters CameraFeedbackOverrides;
 
 	/** 分离模式下，停火超过恢复延迟后，弹道后坐每秒收回的角度。停火达到序列重置时间则整段清零。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "射击方向与镜头", meta = (DisplayName = "射击后坐恢复速度", ClampMin = "0.0", ToolTip = "停火超过恢复延迟后，每秒恢复的角度；停火达到序列重置时间则完整重置。"))
@@ -69,11 +79,11 @@ public:
 	int32 LoopStartIndex = -1;
 
 	/** 每发剩余镜头冲量平滑施加的秒数。0 表示立即施加整发。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "镜头冲量平滑", meta = (DisplayName = "平滑施加时长", ToolTip = "每发剩余镜头冲量平滑施加的秒数；0表示立即施加。", ClampMin = "0.0"))
+	UPROPERTY(BlueprintReadOnly, Category = "WeaponKit|Compatibility", meta = (DisplayName = "平滑施加时长", ToolTip = "每发剩余镜头冲量平滑施加的秒数；0表示立即施加。", ClampMin = "0.0"))
 	float SmoothKickDuration = 0.05f;
 
 	/** 单发冲量里立刻施加的比例，其余部分按平滑时长播完。取值会被钳到 0 到 1。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "镜头冲量平滑", meta = (DisplayName = "立即施加比例", ToolTip = "单发冲量中立即施加的比例，剩余部分按平滑时长施加。", ClampMin = "0.0", ClampMax = "1.0"))
+	UPROPERTY(BlueprintReadOnly, Category = "WeaponKit|Compatibility", meta = (DisplayName = "立即施加比例", ToolTip = "单发冲量中立即施加的比例，剩余部分按平滑时长施加。", ClampMin = "0.0", ClampMax = "1.0"))
 	float ImmediateKickFraction = 0.25f;
 
 	/** 最后一发之后等待这么多秒，才开始自动收回控制器后坐。 */
@@ -99,4 +109,12 @@ public:
 	/** 关闭固定序列时，每发左右摆动的最大角度。实际采样范围是 ±该值。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "随机后坐", meta = (DisplayName = "随机左右最大值", ToolTip = "关闭固定序列时，每发左右摆动的最大角度。"))
 	float HorizontalKickMax = 0.08f;
+
+	/** 仅当旧镜头值与给定预设一致时建立引用，不会改动预设内容。 */
+	UFUNCTION(BlueprintCallable, Category = "WeaponKit|Recoil", meta = (DisplayName = "迁移到匹配的镜头预设"))
+	bool MigrateCameraFeedbackToPreset(UWeaponKitCameraFeedbackPreset* Preset);
+
+	float GetCameraReturnSpeed() const;
+	float GetSmoothKickDuration() const;
+	float GetImmediateKickFraction() const;
 };

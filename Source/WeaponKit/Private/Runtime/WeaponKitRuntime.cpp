@@ -3,6 +3,7 @@
 #include "Data/WeaponKitBallisticsData.h"
 #include "Data/WeaponKitRecoilData.h"
 #include "Engine/World.h"
+#include "Math/WeaponKitAccuracyMath.h"
 #include "Math/FiringSpreadMath.h"
 #include "Math/ShotRecoilMath.h"
 
@@ -62,7 +63,7 @@ void AWeaponKitRuntime::PostInitializeComponents()
 		}
 		if (!bRestoredFireMode)
 		{
-			CurrentFireMode = WeaponDefinition->DefaultFireMode;
+			CurrentFireMode = WeaponDefinition->GetInitialFireMode();
 		}
 		bInitialDefinitionApplied = true;
 	}
@@ -84,8 +85,8 @@ void AWeaponKitRuntime::ApplyDefinitionSettings()
 	BurstShotInterval = WeaponKitNonNegative(Definition->BurstShotInterval);
 	RecoilData = Definition->RecoilData;
 	bLockReloadAmountAtStart = Definition->bLockReloadAmountAtStart;
-	bReloadOneRoundAtATime = Definition->bReloadOneRoundAtATime;
-	bUseBatchReloadForFullEmptyReload = Definition->bUseBatchReloadForFullEmptyReload;
+	bReloadOneRoundAtATime = Definition->UsesPerRoundReload();
+	bUseBatchReloadForFullEmptyReload = Definition->UsesEmptyBatchReload();
 }
 
 // 没有配置时连发恢复间隔为 0。
@@ -413,7 +414,6 @@ void AWeaponKitRuntime::GenerateShotDirection(
 		return;
 	}
 
-	const float SafeCurrentHorizontalSpeed = FMath::Max(0.0f, CurrentHorizontalSpeed);
 	if (RecoilData && RecoilData->bUseFixedPattern && RecoilData->bUseIndependentShotRecoil)
 	{
 		if (!bHasCommittedShotDirection)
@@ -434,30 +434,13 @@ void AWeaponKitRuntime::GenerateShotDirection(
 	const FWeaponKitSpreadProfile Profile = bHasCommittedSpreadProfile
 		? CommittedSpreadProfile
 		: GetSpreadProfile(bOwnerAiming);
-	const float SafeMovementSpreadSpeedThreshold = FMath::Max(0.0f, Profile.MovementSpreadSpeedThreshold);
-	float SelectedSpreadAngle = Profile.MovingSpreadAngle;
-	// 下落使用跳跃锥角，不再看移动速度。
-	if (bIsFalling)
-	{
-		SelectedSpreadAngle = Profile.JumpSpreadAngle;
-	}
-	else if (bIsCrouched)
-	{
-		SelectedSpreadAngle = Profile.StationarySpreadAngle;
-	}
-	else if (SafeCurrentHorizontalSpeed <= SafeMovementSpreadSpeedThreshold)
-	{
-		SelectedSpreadAngle = Profile.StationarySpreadAngle;
-	}
-	else if (bIsSlowWalking)
-	{
-		SelectedSpreadAngle = Profile.SlowWalkSpreadAngle;
-	}
-
-	const float SafeSpreadAngle = FMath::Clamp(
-		(FMath::IsFinite(SelectedSpreadAngle) ? FMath::Max(0.0f, SelectedSpreadAngle) : 0.0f) + CommittedFiringSpread,
-		0.0f,
-		89.0f);
+	const float SafeSpreadAngle = FWeaponKitAccuracyMath::ResolveTotalSpreadAngle(
+		Profile,
+		CurrentHorizontalSpeed,
+		bIsFalling,
+		bIsCrouched,
+		bIsSlowWalking,
+		CommittedFiringSpread);
 	ShotDirection = FMath::VRandCone(BaseDirection, FMath::DegreesToRadians(SafeSpreadAngle));
 	bGenerated = true;
 }
@@ -606,12 +589,28 @@ float AWeaponKitRuntime::GetCurrentFiringSpread() const
 	return GetFiringSpreadForProfile(bOwnerAiming);
 }
 
+float AWeaponKitRuntime::GetCurrentTotalSpreadAngle(
+	float CurrentHorizontalSpeed,
+	bool bIsFalling,
+	bool bIsCrouched,
+	bool bIsSlowWalking) const
+{
+	const FWeaponKitSpreadProfile Profile = GetSpreadProfile(bOwnerAiming);
+	return FWeaponKitAccuracyMath::ResolveTotalSpreadAngle(
+		Profile,
+		CurrentHorizontalSpeed,
+		bIsFalling,
+		bIsCrouched,
+		bIsSlowWalking,
+		GetFiringSpreadForProfile(bOwnerAiming));
+}
+
 // 没有配置时退回代码默认的腰射形状。
 FWeaponKitSpreadProfile AWeaponKitRuntime::GetSpreadProfile(bool bAiming) const
 {
 	if (WeaponDefinition)
 	{
-		return WeaponDefinition->GetSpreadProfile(bAiming);
+		return WeaponDefinition->GetSpreadProfile(bAiming, GetEffectiveFireInterval());
 	}
 	return WeaponKitFallbackSpread();
 }
@@ -619,7 +618,7 @@ FWeaponKitSpreadProfile AWeaponKitRuntime::GetSpreadProfile(bool bAiming) const
 // 未启用连续射击散布，或这套还没开过枪时返回 0。
 float AWeaponKitRuntime::GetFiringSpreadForProfile(bool bAiming) const
 {
-	const bool bAimProfile = bAiming && WeaponDefinition && WeaponDefinition->bUseSeparateAimingSpread;
+	const bool bAimProfile = bAiming && WeaponDefinition && WeaponDefinition->UsesSeparateAimingSpread();
 	const FWeaponKitSpreadProfile Profile = GetSpreadProfile(bAimProfile);
 	const bool bHasShot = bAimProfile ? bHasAimSpreadShot : bHasSpreadShot;
 	if (!Profile.bUseFiringSpread || !bHasShot || !GetWorld())

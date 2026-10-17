@@ -28,7 +28,7 @@ bool UWeaponKitInteractionScanner::IsCarrierAlive() const
 // 只接受实现了拾取接口的 Actor。首次登记时启动重复定时器。
 bool UWeaponKitInteractionScanner::RegisterPickup(AActor* Pickup)
 {
-	if (!IsValid(Pickup) || !Pickup->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()))
+	if (!IsValid(Pickup) || !Pickup->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()))
 	{
 		return false;
 	}
@@ -140,8 +140,8 @@ AActor* UWeaponKitInteractionScanner::FindPickup(bool bAutomaticOnly, AActor* Ex
 	auto IsRegisteredAndInRange = [this, Pawn, MaxDistanceSq, bAutomaticOnly, ExcludedPickup](AActor* Candidate)
 	{
 		if (!IsValid(Candidate) || Candidate == ExcludedPickup ||
-			!Candidate->GetClass()->ImplementsInterface(UWeaponKitPickup::StaticClass()) ||
-			!IWeaponKitPickup::Execute_CanBePickedUpBy(Candidate, Pawn, bAutomaticOnly) ||
+			!Candidate->GetClass()->ImplementsInterface(UWeaponKitPickupInterface::StaticClass()) ||
+			!IWeaponKitPickupInterface::Execute_CanBePickedUpBy(Candidate, Pawn, bAutomaticOnly) ||
 			FVector::DistSquared(GetOwner()->GetActorLocation(), Candidate->GetActorLocation()) > MaxDistanceSq)
 		{
 			return false;

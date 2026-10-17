@@ -18,3 +18,52 @@ UWeaponKitRecoilData::UWeaponKitRecoilData()
 	, HorizontalKickMax(0.08f)
 {
 }
+
+bool UWeaponKitRecoilData::MigrateCameraFeedbackToPreset(UWeaponKitCameraFeedbackPreset* Preset)
+{
+	if (!Preset || bOverrideCameraFeedback ||
+		!FMath::IsFinite(CameraReturnSpeed) || !FMath::IsFinite(SmoothKickDuration) ||
+		!FMath::IsFinite(ImmediateKickFraction) || !FMath::IsFinite(Preset->ReturnSpeed) ||
+		!FMath::IsFinite(Preset->SmoothKickDuration) || !FMath::IsFinite(Preset->ImmediateKickFraction))
+	{
+		return false;
+	}
+
+	constexpr float MatchTolerance = 0.0001f;
+	if (!FMath::IsNearlyEqual(CameraReturnSpeed, Preset->ReturnSpeed, MatchTolerance) ||
+		!FMath::IsNearlyEqual(SmoothKickDuration, Preset->SmoothKickDuration, MatchTolerance) ||
+		!FMath::IsNearlyEqual(ImmediateKickFraction, Preset->ImmediateKickFraction, MatchTolerance))
+	{
+		return false;
+	}
+
+	CameraFeedbackPreset = Preset;
+	return true;
+}
+
+float UWeaponKitRecoilData::GetCameraReturnSpeed() const
+{
+	if (bOverrideCameraFeedback)
+	{
+		return CameraFeedbackOverrides.ReturnSpeed;
+	}
+	return CameraFeedbackPreset ? CameraFeedbackPreset->ReturnSpeed : CameraReturnSpeed;
+}
+
+float UWeaponKitRecoilData::GetSmoothKickDuration() const
+{
+	if (bOverrideCameraFeedback)
+	{
+		return CameraFeedbackOverrides.SmoothKickDuration;
+	}
+	return CameraFeedbackPreset ? CameraFeedbackPreset->SmoothKickDuration : SmoothKickDuration;
+}
+
+float UWeaponKitRecoilData::GetImmediateKickFraction() const
+{
+	if (bOverrideCameraFeedback)
+	{
+		return CameraFeedbackOverrides.ImmediateKickFraction;
+	}
+	return CameraFeedbackPreset ? CameraFeedbackPreset->ImmediateKickFraction : ImmediateKickFraction;
+}

@@ -6,7 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "Data/WeaponKitBallisticsData.generated.h"
+#include "WeaponKitBallisticsData.generated.h"
 
 /**
  * 一把枪的伤害与射程。

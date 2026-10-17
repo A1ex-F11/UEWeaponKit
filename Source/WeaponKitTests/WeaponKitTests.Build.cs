@@ -14,7 +14,9 @@ public class WeaponKitTests : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"WeaponKit"
+			"WeaponKit",
+            "UMG",
+            "SlateCore"
 		});
 	}
 }

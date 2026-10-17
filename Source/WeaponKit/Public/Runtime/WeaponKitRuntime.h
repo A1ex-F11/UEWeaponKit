@@ -8,7 +8,7 @@
 #include "GameFramework/Actor.h"
 #include "Data/WeaponKitTypes.h"
 #include "Data/WeaponKitDefinitionData.h"
-#include "Runtime/WeaponKitRuntime.generated.h"
+#include "WeaponKitRuntime.generated.h"
 
 class UWeaponKitBallisticsData;
 class UWeaponKitRecoilData;
@@ -67,6 +67,10 @@ public:
 	/** 当前瞄准状态下、经过停火恢复后的连续射击散布（度）。未启用时为 0。 */
 	UFUNCTION(BlueprintPure, Category = "WeaponKit|Config")
 	float GetCurrentFiringSpread() const;
+
+	/** 当前瞄准配置、射击累计与调用方姿态合成的总散布角（度），供宿主准星投影。 */
+	UFUNCTION(BlueprintPure, Category = "WeaponKit|Spread")
+	float GetCurrentTotalSpreadAngle(float CurrentHorizontalSpeed, bool bIsFalling, bool bIsCrouched, bool bIsSlowWalking) const;
 
 	/** 弹匣容量。来自配置，至少为 1。 */
 	UFUNCTION(BlueprintPure, Category = "WeaponKit|Config")

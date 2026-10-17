@@ -8,7 +8,7 @@
 #include "Components/ActorComponent.h"
 #include "Math/RecoilKickEnvelope.h"
 #include "TimerManager.h"
-#include "Recoil/WeaponKitCameraRecoilComponent.generated.h"
+#include "WeaponKitCameraRecoilComponent.generated.h"
 
 class UCameraComponent;
 class UWeaponKitRecoilData;

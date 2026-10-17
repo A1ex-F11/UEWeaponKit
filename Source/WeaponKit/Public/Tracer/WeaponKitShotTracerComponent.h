@@ -6,7 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Tracer/WeaponKitShotTracerComponent.generated.h"
+#include "WeaponKitShotTracerComponent.generated.h"
 
 class UNiagaraComponent;
 class UNiagaraSystem;
